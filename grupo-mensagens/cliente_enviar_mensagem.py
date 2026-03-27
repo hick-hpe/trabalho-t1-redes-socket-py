@@ -1,0 +1,30 @@
+"""
+Antes de enviar mensagens, o cliente deve enviar seu nome ao servidor. Este nome será mostrado nas mensagens;
+"""
+
+import socket
+
+HOST = "127.0.0.1"
+PORT = 9000
+
+with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+    s.connect((HOST, PORT))
+
+    print("\n--------- Bem vindo ao ChatServer ---------\n")
+
+    print('Para entrar, insira seu nome')
+    nome = input(": ")
+    s.sendall(nome.encode())
+
+    # # apos receber confirmacao de registro, pode comecar a enviar as mensagens
+    resposta_login = s.recv(1024).decode() # OK
+
+    # permitir o envio de mensagens
+    print('\n--------- Agora pode enviar mensagens!! ---------\n')
+    while True:
+        mensagem = input(": ")
+        s.sendall(mensagem.encode())
+
+    
+
+
