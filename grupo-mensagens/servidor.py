@@ -17,7 +17,7 @@ SEMAFORO_ACESSO = threading.Semaphore(1)
 SEMAFORO_MENSAGENS = threading.Semaphore(0)
 
 # metodo para obter as mensagens do chat
-def acessar_mensagem_recente(conn, data):
+def acessar_mensagem_recente(conn):
 
     print("Tentando ler mensagens...")
 
@@ -102,7 +102,7 @@ def receber_dados_socket(conn):
         
         # diferenciar as threads de listagem e de receber mensagens
         if data.decode() == "/listar":
-            acessar_mensagem_recente(conn, data)
+            acessar_mensagem_recente(conn)
         else:
             receber_e_salvar_mensagem(conn, data)
 
