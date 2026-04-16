@@ -30,16 +30,15 @@ def acessar_mensagem_recente(conn):
     # Verifica se há mensagens na fila
     if mensagens:
         # obtem a primeira mensagem da fila
-        mensagem = mensagens.pop()
+        mensagem = mensagens.pop(0)
 
     # libera o acesso
     SEMAFORO_ACESSO.release()
 
     # envia as mensagens ao container de mensagens
-    resosta = json.dumps(mensagem)
-    conn.sendall(resosta.encode())
+    resposta = json.dumps(mensagem)
+    conn.sendall(resposta.encode())
 
-# nome (0.00.0.0) PM
 
 # metodo para formatar a saida da mensagem
 def formatar_mensagem(conn, mensagem):
@@ -47,50 +46,53 @@ def formatar_mensagem(conn, mensagem):
     IP = usuarios[conn]["IP"]
     data_mensagem = datetime.now()
 
-    formatada = f"[{nome} ({IP}) {data_mensagem.strftime('%I:%M %p')}]"
+    formatada = f"[{nome} ({IP}) {data_mensagem.strftime('%H:%M:%S')}]"
     formatada += f"\n{mensagem}"
 
     return formatada
 
 
+# metodo para registrar usuario
+def registrar_usuario(conn, addr, data):
+    nome = data.decode().split()
+
+    print("Registrado...")
+
+    # obtem o nome
+    nome = data.decode()
+
+    # registra o usuario
+    usuarios[conn] = {
+        "nome": nome,
+        "IP": addr[0]
+    }
+    conn.sendall(b"OK")
+    
+
 # metodo para receber e salvar a mensagem
-def receber_e_salvar_mensagem(conn, data):
+def salvar_mensagem(conn, data):
     print("Tentando enviar mensagens...")
 
-    # verifica se o usuario ja registrado
-    if conn not in usuarios:
-        print("Registrado...")
+    # obtem a mensagem
+    mensagem = data.decode()
 
-        # obtem o nome
-        nome = data.decode()
+    print('/msg:', mensagem)
 
-        # registra o usuario
-        usuarios[conn] = {
-            "nome": nome,
-            "IP": addr[0]
-        }
+    # solicitar o acesso
+    SEMAFORO_ACESSO.acquire()
 
-        conn.sendall(b"OK")
-    
-    else:
-        # obtem a mensagem
-        mensagem = data.decode()
+    # salvar a mensagem
+    mensagens.append(formatar_mensagem(conn, mensagem))
 
-        # solicitar o acesso
-        SEMAFORO_ACESSO.acquire()
+    # libera o acesso as mensagens
+    SEMAFORO_ACESSO.release()
 
-        # salvar a mensagem
-        mensagens.append(formatar_mensagem(conn, mensagem))
-
-        # libera o acesso as mensagens
-        SEMAFORO_ACESSO.release()
-
-        # avisar quando chegar mensagens
-        SEMAFORO_MENSAGENS.release()
+    # avisar quando chegar mensagens
+    SEMAFORO_MENSAGENS.release()
 
 
 # metodo da thread para receber os dados enviados pelos clientes
-def receber_dados_socket(conn):
+def receber_dados_socket(conn,addr):
 
     while True:
         # recebe o dado
@@ -104,8 +106,12 @@ def receber_dados_socket(conn):
         # diferenciar as threads de listagem e de receber mensagens
         if data.decode() == "/listar":
             acessar_mensagem_recente(conn)
+        
+        elif data.decode().startswith("/nome"):
+            registrar_usuario(conn, addr, data)
+
         else:
-            receber_e_salvar_mensagem(conn, data)
+            salvar_mensagem(conn, data)
 
         
 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -122,5 +128,5 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         conn, addr = s.accept()
 
         # cria a thread responsavel por ler os dados do socket
-        thread = threading.Thread(target=receber_dados_socket, args=(conn,))
+        thread = threading.Thread(target=receber_dados_socket, args=(conn,addr,))
         thread.start()
