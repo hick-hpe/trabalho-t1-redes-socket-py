@@ -30,15 +30,16 @@ def acessar_mensagem_recente(conn):
     # Verifica se há mensagens na fila
     if mensagens:
         # obtem a primeira mensagem da fila
-        mensagem = mensagens[0]
+        mensagem = mensagens.pop()
 
     # libera o acesso
     SEMAFORO_ACESSO.release()
 
     # envia as mensagens ao container de mensagens
-    resosta = json.dumps(mensagens[-1])
+    resosta = json.dumps(mensagem)
     conn.sendall(resosta.encode())
 
+# nome (0.00.0.0) PM
 
 # metodo para formatar a saida da mensagem
 def formatar_mensagem(conn, mensagem):
