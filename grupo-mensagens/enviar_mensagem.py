@@ -14,7 +14,7 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
 
     print('Para entrar, insira seu nome')
     nome = input(": ")
-    s.sendall(nome.encode())
+    s.sendall(f"/nome {nome}".encode())
 
     # # apos receber confirmacao de registro, pode comecar a enviar as mensagens
     resposta_login = s.recv(1024).decode() # OK
@@ -24,7 +24,7 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
     while True:
         mensagem = input(": ")
         s.sendall(mensagem.encode())
-
     
-
+    
+    
 
