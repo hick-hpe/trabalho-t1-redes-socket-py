@@ -1,125 +1,211 @@
-"""
-O servidor deve suportar múltiplos clientes simultâneamente, utilizando threads;
-"""
-
-import threading
-import socket
-from datetime import datetime
 import json
+import socket
+import threading
+from random import randint
+import time
 
-HOST = "0.0.0.0"
+HOST = '0.0.0.0'
 PORT = 9000
-usuarios = {}
-mensagens = []
 
-# semaforos
-SEMAFORO_ACESSO = threading.Semaphore(1)
-SEMAFORO_MENSAGENS = threading.Semaphore(0)
+# dados do jogo
+NUM_JOGADORES = 3
+N_RODADAS = 2
+WAITING_TIME = 2
+TEMAS = ["nome", "cep", "fruta", "cor"]
+TEMAS = TEMAS[:2]
+FORMATO_CODIFICACAO = 'UTF-8'
+jogadores = {}
+jogador_terminou_primeiro = None
+SEMAFORO = threading.Semaphore(1)
 
-# metodo para obter as mensagens do chat
-def acessar_mensagem_recente(conn):
+# calcula a pontuacao dos jogadores
+def calcular_pontuacao():
+    # organizar as respostas recebidas por temas
+    respostas = {t: {} for t in TEMAS}
 
-    print("Tentando ler mensagens...")
+    # organizar as respostas iguais
+    i = 1
+    for conn in jogadores:
+        # jogador
+        jog = jogadores[conn]
 
-    # aguarda até que existam mensagens
-    SEMAFORO_MENSAGENS.acquire()
+        # respostas do jogador (jog["resp"]) por tema
+        for tema in jog["resp"]:
 
-    # aguarda o acesso
-    SEMAFORO_ACESSO.acquire()
+            # se a resposta nao esta na lista geral, adicionar a chave do jogador
+            resposta = jog["resp"].get(tema, '')
+            if resposta not in respostas[tema]:
+                respostas[tema][resposta] = [conn]
+            else:
+                respostas[tema][resposta].append(conn)
 
-    # Verifica se há mensagens na fila
-    if mensagens:
-        # obtem a primeira mensagem da fila
-        mensagem = mensagens[0]
-
-    # libera o acesso
-    SEMAFORO_ACESSO.release()
-
-    # envia as mensagens ao container de mensagens
-    resosta = json.dumps(mensagens[-1])
-    conn.sendall(resosta.encode())
-
-
-# metodo para formatar a saida da mensagem
-def formatar_mensagem(conn, mensagem):
-    nome = usuarios[conn]["nome"]
-    IP = usuarios[conn]["IP"]
-    data_mensagem = datetime.now()
-
-    formatada = f"[{nome} ({IP}) {data_mensagem.strftime('%I:%M %p')}]"
-    formatada += f"\n{mensagem}"
-
-    return formatada
-
-
-# metodo para receber e salvar a mensagem
-def receber_e_salvar_mensagem(conn, data):
-    print("Tentando enviar mensagens...")
-
-    # verifica se o usuario ja registrado
-    if conn not in usuarios:
-        print("Registrado...")
-
-        # obtem o nome
-        nome = data.decode()
-
-        # registra o usuario
-        usuarios[conn] = {
-            "nome": nome,
-            "IP": addr[0]
-        }
-
-        conn.sendall(b"OK")
+        i += 1
     
-    else:
-        # obtem a mensagem
-        mensagem = data.decode()
 
-        # solicitar o acesso
-        SEMAFORO_ACESSO.acquire()
+    # contar os pontos
+    print("---------- analise das respostas ----------")
+    for tema in respostas:
+        for resposta in respostas[tema]:
 
-        # salvar a mensagem
-        mensagens.append(formatar_mensagem(conn, mensagem))
+            lista_jog = respostas[tema][resposta]
+            print(f'[{tema}] responderam "{resposta}": {list(jogadores[conn]["nome"] for conn in lista_jog)}')
+    
+            # se mais de um jogador respondeu a mesma coisa, todos ganham 1 ponto
+            if len(lista_jog) > 1:
+                for conn in lista_jog:
+                    jogadores[conn]["pontos"] += 1
+            
+            # se foi o unico a responder isso, ganha 3 pontos
+            else:
+                conn = lista_jog.pop()
+                jogadores[conn]["pontos"] += 3
 
-        # libera o acesso as mensagens
-        SEMAFORO_ACESSO.release()
 
-        # avisar quando chegar mensagens
-        SEMAFORO_MENSAGENS.release()
+# salvar as respostas do jogador
+def salvar_respostas_jogador(conn):
+    # identificar jogador
+    nome = jogadores[conn]["nome"]
 
-
-# metodo da thread para receber os dados enviados pelos clientes
-def receber_dados_socket(conn):
+    global jogador_terminou_primeiro
 
     while True:
-        # recebe o dado
-        data = conn.recv(1024)
 
-        # se o cliente nao enviou dados, desconectado 
-        if not data:
-            print("Cliente desconectou.")
+        # identificar a categoria a ser salva
+        print(f'[server] "{nome}" - esperando resposta do jogador...')
+        resposta = conn.recv(1024).decode(FORMATO_CODIFICACAO)
+        obj_resp = json.loads(resposta)
+        categoria = list(obj_resp.keys())[0]
+
+        # definir o jogador que terminou primeiro - estado global
+        with SEMAFORO:
+
+            # se já tem vencedor, ignora novas respostas
+            if jogador_terminou_primeiro:
+                pode_continuar = False
+
+            else:
+                pode_continuar = True
+
+                # salvar resposta
+                jogadores[conn].setdefault("resp", {})
+                jogadores[conn]["resp"][categoria] = obj_resp[categoria]
+
+                print(f'>_ resposta {categoria}="{obj_resp[categoria]}" de "{nome}"...')
+
+                # se terminou agora
+                if categoria == TEMAS[-1]:
+                    jogador_terminou_primeiro = conn
+                    pode_continuar = False
+                    print(f'>_ "{nome}" terminou primeiro!!!')
+            
+        conn.sendall(json.dumps(pode_continuar).encode(FORMATO_CODIFICACAO))
+
+        # se nao pode mais receber respostas, encerra a thread
+        if not pode_continuar:
+            print("[server] nao pode mais receber respostas")
             break
+    
+    print(f"[Thread] {nome} espera pontuacao...")
+
+
+def criar_ranking():
+    return sorted(jogadores.items(), key=lambda x: x[1]["pontos"], reverse=True)
+
+
+def criar_tabela_classificacao():
+    tabela_classificacao = f"{'Nome'.ljust(10)} | {'Pontuação'.ljust(2)}\n"
+    largura = len(tabela_classificacao)
+    linha = largura * "-"
+    tabela_classificacao = linha + "\n" + tabela_classificacao + linha + "\n"
+
+    # ordenar os jogadores por pontos
+    ranking = criar_ranking()
+
+    for _, valores in ranking:
+        nome = valores["nome"]
+        pontos = str(valores["pontos"])
+        tabela_classificacao += f"{nome.ljust(10)} | {pontos.rjust(2)}\n"
+    
+    return tabela_classificacao
+
+
+def iniciar_servidor():
+    global jogador_terminou_primeiro
+
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        s.bind((HOST, PORT))
+        s.listen()
+
+        print('\n--- Iniciando Jogo - Stop ---\n')
+        n_rodada_atual = 1
+
+        # loop das conexoes
+        while len(jogadores) < NUM_JOGADORES:
+            # recebe conexao do cliente
+            conn, addr = s.accept()
+            
+            # verifica se tem dados
+            data = conn.recv(1024)
+            if not data:
+                conn.close()
+                continue
+
+            # salva o jogador
+            jogadores[conn] = {
+                "nome": data.decode(FORMATO_CODIFICACAO).strip(),
+                "pontos": 0,
+            }
+
+            # enviar lista das categorias ao cliente
+            conn.sendall(json.dumps(TEMAS).encode(FORMATO_CODIFICACAO))
         
-        # diferenciar as threads de listagem e de receber mensagens
-        if data.decode() == "/listar":
-            acessar_mensagem_recente(conn)
-        else:
-            receber_e_salvar_mensagem(conn, data)
-
         
-with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    s.bind((HOST, PORT))
-    s.listen()
-    s.settimeout(500)
+        # loop do jogo
+        while n_rodada_atual <= N_RODADAS:
+            jogador_terminou_primeiro = None
+        
+            # apos todos os jogadores se conectarem, enviar a letra
+            letra_sorteada = chr(randint(65, 90)) # sorteia letras no intervalo [A-Z]
+            for conn in jogadores:
+                # mensagem = f"Bem vindo, {jogadores[conn]['nome']}\n"
+                mensagem = f"Letra: {letra_sorteada}"
+                conn.sendall(mensagem.encode(FORMATO_CODIFICACAO))
+            
+            # receber as palavras enviadas
+            threads_respostas = []
+            for conn in jogadores:
+                thread = threading.Thread(target=salvar_respostas_jogador, args=(conn,))
+                thread.start()
+                threads_respostas.append(thread)
+            
+            for thread in threads_respostas:
+                thread.join()
+            
+            # calcular resultado
+            print(">_ calcular_pontuacao()")
+            calcular_pontuacao()
 
-    print('\n--- Iniciando ChatServer ---\n')
+            # envia placar aos jogadores
+            time.sleep(WAITING_TIME)
+            for conn in jogadores:
+                mensagem = f"Resultado da rodada {n_rodada_atual}:\n"
+                mensagem += f"Pontuação: {jogadores[conn]["pontos"]} pontos"
+                conn.sendall(mensagem.encode(FORMATO_CODIFICACAO))
 
-    # recebe a conexao do cliente
-    while True:
-        # recebe conexao do cliente
-        conn, addr = s.accept()
+            # atualiza contador das rodadas
+            n_rodada_atual += 1
 
-        # cria a thread responsavel por ler os dados do socket
-        thread = threading.Thread(target=receber_dados_socket, args=(conn,))
-        thread.start()
+        # enviar placar final a todos os jogadores    
+        tabela_classificacao = criar_tabela_classificacao()
+        
+        print(tabela_classificacao)
+
+        for conn in jogadores:
+            conn.sendall(tabela_classificacao.encode(FORMATO_CODIFICACAO))
+
+
+# python stop\servidor.py
+# python stop\cliente.py
+
+iniciar_servidor()

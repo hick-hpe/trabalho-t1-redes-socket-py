@@ -1,0 +1,3 @@
+- revisar semaforo do chat
+- revisar logs de ambos
+- fazer documentacao
