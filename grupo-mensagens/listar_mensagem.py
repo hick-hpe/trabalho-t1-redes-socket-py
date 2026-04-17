@@ -10,17 +10,17 @@ import json
 HOST = "127.0.0.1"
 PORT = 9000
 
-with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-    s.connect((HOST, PORT))
+with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as cliente:
+    cliente.connect((HOST, PORT))
 
     print("\n--------- ChatServer ---------\n")
     
     while True:
         # solicitar mensagens
-        s.sendall(b"/listar")
+        cliente.sendall(b"/listar")
 
         # aguarda o envio dos dados
-        data = s.recv(1024)
+        data = cliente.recv(1024)
 
         # recebe as mensagens do chat
         mensagem = json.loads(data.decode())

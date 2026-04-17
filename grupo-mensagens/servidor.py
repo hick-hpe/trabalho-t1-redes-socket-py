@@ -110,20 +110,23 @@ def receber_dados_socket(conn,addr):
         else:
             salvar_mensagem(conn, data)
 
-        
-with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    s.bind((HOST, PORT))
-    s.listen()
-    s.settimeout(500)
 
-    print('\n--- Iniciando ChatServer ---\n')
+def iniciar_servidor():
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server:
+        server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        server.bind((HOST, PORT))
+        server.listen()
+        server.settimeout(500)
 
-    # recebe a conexao do cliente
-    while True:
-        # recebe conexao do cliente
-        conn, addr = s.accept()
+        print('\n--- Iniciando ChatServer ---\n')
 
-        # cria a thread responsavel por ler os dados do socket
-        thread = threading.Thread(target=receber_dados_socket, args=(conn,addr,))
-        thread.start()
+        # recebe a conexao do cliente
+        while True:
+            # recebe conexao do cliente
+            conn, addr = server.accept()
+
+            # cria a thread responsavel por ler os dados do socket
+            thread = threading.Thread(target=receber_dados_socket, args=(conn,addr,))
+            thread.start()
+
+iniciar_servidor()

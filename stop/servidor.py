@@ -132,10 +132,10 @@ def criar_tabela_classificacao():
 def iniciar_servidor():
     global jogador_terminou_primeiro
 
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        s.bind((HOST, PORT))
-        s.listen()
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as servidor:
+        servidor.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        servidor.bind((HOST, PORT))
+        servidor.listen()
 
         print('\n--- Iniciando Jogo - Stop ---\n')
         n_rodada_atual = 1
@@ -143,7 +143,7 @@ def iniciar_servidor():
         # loop das conexoes
         while len(jogadores) < NUM_JOGADORES:
             # recebe conexao do cliente
-            conn, addr = s.accept()
+            conn, addr = servidor.accept()
             
             # verifica se tem dados
             data = conn.recv(1024)
@@ -181,7 +181,7 @@ def iniciar_servidor():
             
             for thread in threads_respostas:
                 thread.join()
-            
+                
             # calcular resultado
             print(">_ calcular_pontuacao()")
             calcular_pontuacao()
@@ -204,8 +204,5 @@ def iniciar_servidor():
         for conn in jogadores:
             conn.sendall(tabela_classificacao.encode(FORMATO_CODIFICACAO))
 
-
-# python stop\servidor.py
-# python stop\cliente.py
 
 iniciar_servidor()

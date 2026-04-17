@@ -8,19 +8,19 @@ N_RODADAS = 2
 n_rodada_atual = 1
 FORMATO_CODIFICACAO = 'UTF-8'
 
-with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-    s.connect((HOST, PORT))
+with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as cliente:
+    cliente.connect((HOST, PORT))
     
     # enviar nome ao servidor
     nome = input("Nome: ")
-    s.sendall(nome.encode(FORMATO_CODIFICACAO))
+    cliente.sendall(nome.encode(FORMATO_CODIFICACAO))
 
     # salva a lista de temas do servidor
-    temas = json.loads(s.recv(1024).decode(FORMATO_CODIFICACAO))
+    temas = json.loads(cliente.recv(1024).decode(FORMATO_CODIFICACAO))
 
     while n_rodada_atual <= N_RODADAS:
         # recebe resposta
-        resposta = s.recv(1024).decode(FORMATO_CODIFICACAO)
+        resposta = cliente.recv(1024).decode(FORMATO_CODIFICACAO)
 
         # enviar respostas
         print(
@@ -40,11 +40,11 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
 
             # enviar ao servidor
             obj_str = json.dumps(obj)
-            s.sendall(obj_str.encode(FORMATO_CODIFICACAO))
+            cliente.sendall(obj_str.encode(FORMATO_CODIFICACAO))
 
             # servidor diz se pode continuar ou nao a enviar respostas
             print('esperando "pode_continuar" do server...')
-            pode_continuar = json.loads(s.recv(1024).decode(FORMATO_CODIFICACAO))
+            pode_continuar = json.loads(cliente.recv(1024).decode(FORMATO_CODIFICACAO))
             
             if not pode_continuar:
                 print("Servidor nao recebe mais respostas!!!")
@@ -52,13 +52,13 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
 
         # pontuacao da rodada
         print('esperando "pontuacao da rodada" do server...')
-        resposta = s.recv(1024).decode(FORMATO_CODIFICACAO)
+        resposta = cliente.recv(1024).decode(FORMATO_CODIFICACAO)
         print(f"\n{resposta}")
 
         n_rodada_atual += 1
 
 
     # aguardar classificacao geral
-    tabela_classificacao = s.recv(1024).decode(FORMATO_CODIFICACAO)
+    tabela_classificacao = cliente.recv(1024).decode(FORMATO_CODIFICACAO)
     print(f"\n{tabela_classificacao}")
 
