@@ -16,15 +16,18 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
     nome = input(": ")
     s.sendall(f"/nome {nome}".encode())
 
-    # # apos receber confirmacao de registro, pode comecar a enviar as mensagens
+    # apos receber confirmacao de registro, pode comecar a enviar as mensagens
     resposta_login = s.recv(1024).decode() # OK
 
-    # permitir o envio de mensagens
-    print('\n--------- Agora pode enviar mensagens!! ---------\n')
-    while True:
-        mensagem = input(": ")
-        s.sendall(mensagem.encode())
+    try:
+        # permitir o envio de mensagens
+        print('\n--------- Agora pode enviar mensagens!! ---------\n')
+        while True:
+            mensagem = input(": ")
+            s.sendall(mensagem.encode())
     
+    except KeyboardInterrupt:
+        print("You left the game")
     
     
 

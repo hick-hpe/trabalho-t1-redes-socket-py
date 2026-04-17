@@ -54,12 +54,9 @@ def formatar_mensagem(conn, mensagem):
 
 # metodo para registrar usuario
 def registrar_usuario(conn, addr, data):
-    nome = data.decode().split()
-
-    print("Registrado...")
-
     # obtem o nome
-    nome = data.decode()
+    lista_dados = data.decode().split()
+    nome = " ".join(lista_dados[1:])
 
     # registra o usuario
     usuarios[conn] = {
