@@ -36,7 +36,7 @@ Permite:
 
 ## ⚙️ Configuração
 
-```python
+python
 HOST = '127.0.0.1'
 PORT = 9000
 N_RODADAS = 2
