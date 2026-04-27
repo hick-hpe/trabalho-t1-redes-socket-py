@@ -12,7 +12,6 @@ NUM_JOGADORES = 3
 N_RODADAS = 2
 WAITING_TIME = 2
 TEMAS = ["nome", "cep", "fruta", "cor"]
-TEMAS = TEMAS[:2]
 FORMATO_CODIFICACAO = 'UTF-8'
 jogadores = {}
 jogador_terminou_primeiro = None
