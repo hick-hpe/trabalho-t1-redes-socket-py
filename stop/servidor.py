@@ -8,10 +8,11 @@ HOST = '0.0.0.0'
 PORT = 9000
 
 # dados do jogo
-NUM_JOGADORES = 3
+NUM_JOGADORES = 2
 N_RODADAS = 2
 WAITING_TIME = 2
 TEMAS = ["nome", "cep", "fruta", "cor"]
+TEMAS = TEMAS[:2]
 FORMATO_CODIFICACAO = 'UTF-8'
 jogadores = {}
 jogador_terminou_primeiro = None
@@ -86,7 +87,8 @@ def salvar_respostas_jogador(conn):
                 pode_continuar = True
 
                 # salvar resposta
-                jogadores[conn].setdefault("resp", {})
+                if "resp" not in jogadores[conn]:
+                    jogadores[conn]["resp"] = {}
                 jogadores[conn]["resp"][categoria] = obj_resp[categoria]
 
                 print(f'>_ resposta {categoria}="{obj_resp[categoria]}" de "{nome}"...')
@@ -122,7 +124,7 @@ def criar_tabela_classificacao():
 
     for _, valores in ranking:
         nome = valores["nome"]
-        pontos = str(valores["pontos"])
+        pontos = str(valores["pontos_total"])
         tabela_classificacao += f"{nome.ljust(10)} | {pontos.rjust(2)}\n"
     
     return tabela_classificacao
@@ -154,8 +156,10 @@ def iniciar_servidor():
             jogadores[conn] = {
                 "nome": data.decode(FORMATO_CODIFICACAO).strip(),
                 "pontos": 0,
+                "pontos_total": 0
             }
 
+        for conn in jogadores:
             # enviar lista das categorias ao cliente
             conn.sendall(json.dumps(TEMAS).encode(FORMATO_CODIFICACAO))
         
@@ -191,6 +195,9 @@ def iniciar_servidor():
                 mensagem = f"Resultado da rodada {n_rodada_atual}:\n"
                 mensagem += f"Pontuação: {jogadores[conn]["pontos"]} pontos"
                 conn.sendall(mensagem.encode(FORMATO_CODIFICACAO))
+                
+                jogadores[conn]["pontos_total"] += jogadores[conn]["pontos"]
+                jogadores[conn]["pontos"] = 0
 
             # atualiza contador das rodadas
             n_rodada_atual += 1
